@@ -1,13 +1,13 @@
 package main
 
 import (
+	"crawlrate/models"
 	"net/http"
 
 	"github.com/jasonlvhit/gocron"
 
+	"github.com/haibin0628/galaxylib"
 	"github.com/labstack/echo"
-	"github.com/otwdev/crawlrate/models"
-	"github.com/otwdev/galaxylib"
 )
 
 func main() {
@@ -39,9 +39,7 @@ func main() {
 		return c.JSON(http.StatusOK, data)
 	})
 
-	port := galaxylib.GalaxyCfgFile.MustValue("data", "port")
-
-	e.Start(port)
+	e.Start("0.0.0.0:1299")
 
 }
 
@@ -51,7 +49,7 @@ func crawlData() {
 
 	go func() {
 
-		gocron.Every(1).Days().At(crawlTime).Do(func() {
+		gocron.Every(1).Hours().At(crawlTime).Do(func() {
 			c := &models.Currency{}
 
 			c.FromRemote()

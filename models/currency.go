@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"gorm.io/gorm"
 	"net/http"
 	"regexp"
 	"strings"
@@ -9,16 +10,15 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 
-	"github.com/jinzhu/gorm"
-	"github.com/otwdev/galaxylib"
+	"github.com/haibin0628/galaxylib"
 )
 
 type Currency struct {
 	gorm.Model
-	Convertor string  `gorm:"nvarchar(50)"`
-	Rate      float64 `gorm:"numberic(30,5)"`
-	CrawlTime string
-	RawText   string
+	Convertor string  `gorm:"column:convertor"`
+	Rate      float64 `gorm:"column:rate"`
+	CrawlTime string  `gorm:"column:crawl_time"`
+	RawText   string  `gorm:"column:raw_text"`
 }
 
 func (c *Currency) FromRemote() {
@@ -33,21 +33,16 @@ func (c *Currency) FromRemote() {
 			convertAry := strings.Split(cy, "-")
 			param := fmt.Sprintf("From=%s&To=%s", convertAry[0], convertAry[1])
 			remote := fmt.Sprintf("%s&%s", address, param)
-			regex := regexp.MustCompile(fmt.Sprintf(`1 %s = ([0-9\.]+) %s`, convertAry[0], convertAry[1]))
+			regex := regexp.MustCompile(fmt.Sprintf(`1 %s = ([0-9\.]+) %s`, convertAry[1], convertAry[0]))
 			convertor := &Currency{
-				Convertor: cy,
+				//保存为 美元兑人民币
+				Convertor: fmt.Sprintf("%s-%s", convertAry[1], convertAry[0]),
 				CrawlTime: time.Now().Format("2006-01-02"),
 			}
 			convertor.crawl(remote, regex, db)
 			currencyBody = fmt.Sprintf("%s<br/>%s", currencyBody, convertor.RawText)
 		}
 	})
-
-	n := &Notice{
-		Body: currencyBody,
-	}
-
-	n.Send()
 }
 
 func (c *Currency) crawl(address string, regex *regexp.Regexp, db *gorm.DB) {
@@ -56,9 +51,10 @@ func (c *Currency) crawl(address string, regex *regexp.Regexp, db *gorm.DB) {
 		galaxylib.GalaxyLogger.Error(err)
 		return
 	}
-	doc, _ := goquery.NewDocumentFromResponse(rs)
+	doc, _ := goquery.NewDocumentFromReader(rs.Body) //.NewDocumentFromResponse(rs)
 
-	section := doc.Find(".uccResultUnit").First()
+	section := doc.Find(".unit-rates___StyledDiv-sc-1dk593y-0").First()
+
 	c.RawText = section.Text()
 
 	matches := regex.FindAllStringSubmatch(c.RawText, -1)
@@ -78,8 +74,9 @@ func (c *Currency) Get() (ret *Currency) {
 		result := db.Where("convertor=?", c.Convertor).Order("id desc").First(&rev)
 		if result.Error != nil {
 			fmt.Println(result.Error)
+		} else {
+			ret = rev[0]
 		}
-		ret = rev[0]
 	})
 	return
 }
