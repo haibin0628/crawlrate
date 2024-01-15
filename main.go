@@ -49,7 +49,7 @@ func crawlData() {
 
 	go func() {
 
-		gocron.Every(1).Hours().At(crawlTime).Do(func() {
+		gocron.Every(1).Day().At(crawlTime).Do(func() {
 			c := &models.Currency{}
 
 			c.FromRemote()
